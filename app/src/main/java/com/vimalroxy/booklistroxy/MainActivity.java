@@ -51,9 +51,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
+                //Clear Old List
                 bookList.clear();
+
+                //Get Text From SearchField
                 EditText search = (EditText) findViewById(R.id.search_field);
                 String searchString = search.getText().toString();
+
+                //Concatinate String To Search
                 searchURL = URL_ORIGINAL + urlEncode(searchString);
                 onSearch();
             }
