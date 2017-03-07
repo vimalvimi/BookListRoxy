@@ -30,9 +30,6 @@ public class Adapter extends ArrayAdapter<Book> {
         TextView bookAuthor = (TextView) listItemView.findViewById(R.id.author);
         bookAuthor.setText(currentBook.getAuthor());
 
-//        ImageView imageView = (ImageView) listItemView.findViewById(R.id.image_icon);
-//        imageView.setImageDrawable(imageThumb);
-
         return listItemView;
     }
 }
