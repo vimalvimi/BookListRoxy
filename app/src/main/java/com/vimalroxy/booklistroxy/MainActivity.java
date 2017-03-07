@@ -40,7 +40,6 @@ public class MainActivity extends AppCompatActivity {
     //Original URL
     private static final String URL_ORIGINAL = "https://www.googleapis.com/books/v1/volumes?q=";
 
-
     Adapter booksAdapter;
     String searchURL;
 
@@ -72,7 +71,6 @@ public class MainActivity extends AppCompatActivity {
                     //Concatinate String To Search
                     searchURL = URL_ORIGINAL + urlEncode(searchString);
                     onSearch();
-
                 }
             });
         }else{
@@ -121,7 +119,6 @@ public class MainActivity extends AppCompatActivity {
             }
             bookList = extractBooksJSON(jsonResponse);
             return bookList;
-
         }
 
         @Override
@@ -272,8 +269,6 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     ratingString = rating;
                 }
-
-
                 // Adding to Array
                 bookList.add(new Book(title, bookAuthorsString, ratingString));
             }
