@@ -5,6 +5,9 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 
 import org.json.JSONArray;
@@ -15,92 +18,88 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
 
-    //Log Tag for Messages
-    private static final String TAG = "MainActivity";
-    //Original URL
-    private static final String URL_ORIGINAL = "https://www.googleapis.com/books/v1/volumes?q=quilting";
     // Create an empty ArrayList that we can start adding earthquakes to
     private static ArrayList<Book> bookList = new ArrayList<>();
+
+    //Log Tag for Messages
+    private static final String TAG = "MainActivity";
+
+    //Original URL
+    private static final String URL_ORIGINAL = "https://www.googleapis.com/books/v1/volumes?q=";
+
     Adapter booksAdapter;
-
-    public static ArrayList<Book> extractBooksJSON(String booksJSON) {
-
-        if (TextUtils.isEmpty(booksJSON)) {
-            return null;
-        }
-
-        // Try to parse the SAMPLE_JSON_RESPONSE. If there's a problem with the way the JSON
-        // is formatted, a JSONException exception object will be thrown.
-        // Catch the exception so the app doesn't crash, and print the error message to the logs.
-        try {
-            JSONObject root = new JSONObject(booksJSON);
-            JSONArray items = root.getJSONArray("items");
-
-            for (int i = 0; i < items.length(); i++) {
-                JSONObject books = items.getJSONObject(i);
-                JSONObject volumeInfo = books.getJSONObject("volumeInfo");
-
-                // ----
-                // TITLE
-                // ----
-                String title = volumeInfo.getString("title");
-
-                // ----
-                // AUTHORS
-                // ----
-                JSONArray bookAuthors = null;
-                try {
-                    bookAuthors = volumeInfo.getJSONArray("authors");
-                } catch (JSONException ignored) {
-                }
-                //Convert Authors to String
-                String bookAuthorsString = "";
-                //Unknown if Empty
-                if (bookAuthors == null) {
-                    bookAuthorsString = "Unknown";
-                } else {
-                    int countAuthors = bookAuthors.length();
-                    for (int a = 0; a < countAuthors; a++) {
-                        String author = bookAuthors.getString(a);
-                        if (bookAuthorsString.isEmpty()) {
-                            bookAuthorsString = author;
-                        } else if (a == countAuthors - 1) {
-                            bookAuthorsString = bookAuthorsString + " and " + author;
-                        } else {
-                            bookAuthorsString = bookAuthorsString + ", " + author;
-                        }
-                    }
-                }
-
-                // Adding to Array
-                bookList.add(new Book(title, bookAuthorsString));
-            }
-
-        } catch (JSONException e) {
-            // If an error is thrown when executing any of the above statements in the "try" block,
-            // catch the exception here, so the app doesn't crash. Print a log message
-            // with the message from the exception.
-            Log.e("QueryUtils", "Problem parsing the earthquake JSON results", e);
-        }
-        return bookList;
-    }
+    String searchURL;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        final Button button = (Button) findViewById(R.id.button);
+        button.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+
+                bookList.clear();
+                EditText search = (EditText) findViewById(R.id.search_field);
+                String searchString = search.getText().toString();
+                searchURL = URL_ORIGINAL + urlEncode(searchString);
+                onSearch();
+            }
+        });
+    }
+
+    public static String urlEncode(String original) {
+        try {
+            //return URLEncoder.encode(original, "utf-8");
+            //fixed: to comply with RFC-3986
+            return URLEncoder.encode(original, "utf-8").replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
+        } catch (UnsupportedEncodingException e) {
+            //  Logger.e(e.toString());
+        }
+        return null;
+    }
+
+    private void onSearch() {
         booksAsyncTask booksAsyncTask = new booksAsyncTask();
         booksAsyncTask.execute();
+    }
 
+    private class booksAsyncTask extends AsyncTask<String, Void, ArrayList<Book>> {
+        @Override
+        protected ArrayList<Book> doInBackground(String... params) {
+
+            // Create URL object
+            URL url = createUrl(searchURL);
+
+            // Perform HTTP request to the URL and receive a JSON response back
+            String jsonResponse = "";
+            try {
+                jsonResponse = makeHttpRequest(url);
+            } catch (IOException e) {
+                Log.e(TAG, "doInBackground: ERROR ", e);
+            }
+            bookList = extractBooksJSON(jsonResponse);
+            return bookList;
+
+        }
+
+        @Override
+        protected void onPostExecute(ArrayList<Book> bookArrayList) {
+            super.onPostExecute(bookArrayList);
+            updateUi();
+        }
     }
 
     private void updateUi() {
@@ -172,30 +171,66 @@ public class MainActivity extends AppCompatActivity {
         return output.toString();
     }
 
-    private class booksAsyncTask extends AsyncTask<String, Void, ArrayList<Book>> {
-        @Override
-        protected ArrayList<Book> doInBackground(String... params) {
+    public static ArrayList<Book> extractBooksJSON(String booksJSON) {
 
-            // Create URL object
-            URL url = createUrl(URL_ORIGINAL);
+        if (TextUtils.isEmpty(booksJSON)) {
+            return null;
+        }
 
-            // Perform HTTP request to the URL and receive a JSON response back
-            String jsonResponse = "";
-            try {
-                jsonResponse = makeHttpRequest(url);
-            } catch (IOException e) {
-                // TODO Handle the IOException
+        // Try to parse the SAMPLE_JSON_RESPONSE. If there's a problem with the way the JSON
+        // is formatted, a JSONException exception object will be thrown.
+        // Catch the exception so the app doesn't crash, and print the error message to the logs.
+        try {
+            JSONObject root = new JSONObject(booksJSON);
+            JSONArray items = root.getJSONArray("items");
+
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject books = items.getJSONObject(i);
+                JSONObject volumeInfo = books.getJSONObject("volumeInfo");
+
+                // ----
+                // TITLE
+                // ----
+                String title = volumeInfo.getString("title");
+
+                // ----
+                // AUTHORS
+                // ----
+                JSONArray bookAuthors = null;
+                try {
+                    bookAuthors = volumeInfo.getJSONArray("authors");
+                } catch (JSONException ignored) {
+                }
+                //Convert Authors to String
+                String bookAuthorsString = "";
+                //Unknown if Empty
+                if (bookAuthors == null) {
+                    bookAuthorsString = "Unknown";
+                } else {
+                    int countAuthors = bookAuthors.length();
+                    for (int a = 0; a < countAuthors; a++) {
+                        String author = bookAuthors.getString(a);
+                        if (bookAuthorsString.isEmpty()) {
+                            bookAuthorsString = author;
+                        } else if (a == countAuthors - 1) {
+                            bookAuthorsString = bookAuthorsString + " and " + author;
+                        } else {
+                            bookAuthorsString = bookAuthorsString + ", " + author;
+                        }
+                    }
+                }
+
+                // Adding to Array
+                bookList.add(new Book(title, bookAuthorsString));
             }
-            bookList = extractBooksJSON(jsonResponse);
-            return bookList;
 
+        } catch (JSONException e) {
+            // If an error is thrown when executing any of the above statements in the "try" block,
+            // catch the exception here, so the app doesn't crash. Print a log message
+            // with the message from the exception.
+            Log.e("QueryUtils", "Problem parsing the earthquake JSON results", e);
         }
-
-        @Override
-        protected void onPostExecute(ArrayList<Book> bookArrayList) {
-            super.onPostExecute(bookArrayList);
-            updateUi();
-        }
+        return bookList;
     }
 
 }
