@@ -1,5 +1,7 @@
 package com.vimalroxy.booklistroxy;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -8,6 +10,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 
 import org.json.JSONArray;
@@ -37,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
     //Original URL
     private static final String URL_ORIGINAL = "https://www.googleapis.com/books/v1/volumes?q=";
 
+
     Adapter booksAdapter;
     String searchURL;
 
@@ -45,31 +49,50 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        final Button button = (Button) findViewById(R.id.button);
-        button.setOnClickListener(new View.OnClickListener() {
+        if (isNetworkConnected()) {
 
-            @Override
-            public void onClick(View v) {
+            final LinearLayout noResult = (LinearLayout) findViewById(R.id.empty_list);
+            noResult.setVisibility(View.VISIBLE);
 
-                //Clear Old List
-                bookList.clear();
+            final Button button = (Button) findViewById(R.id.button);
+            button.setOnClickListener(new View.OnClickListener() {
 
-                //Get Text From SearchField
-                EditText search = (EditText) findViewById(R.id.search_field);
-                String searchString = search.getText().toString();
+                @Override
+                public void onClick(View v) {
 
-                //Concatinate String To Search
-                searchURL = URL_ORIGINAL + urlEncode(searchString);
-                onSearch();
-            }
-        });
+                    noResult.setVisibility(View.GONE);
+
+                    //Clear Old List
+                    bookList.clear();
+
+                    //Get Text From SearchField
+                    EditText search = (EditText) findViewById(R.id.search_field);
+                    String searchString = search.getText().toString();
+
+                    //Concatinate String To Search
+                    searchURL = URL_ORIGINAL + urlEncode(searchString);
+                    onSearch();
+
+                }
+            });
+        }else{
+            LinearLayout noNetwork = (LinearLayout) findViewById(R.id.no_connection);
+            noNetwork.setVisibility(View.VISIBLE);
+        }
+    }
+
+    // Check all connectivities whether available or not
+    private boolean isNetworkConnected() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        return cm.getActiveNetworkInfo() != null;
     }
 
     public static String urlEncode(String original) {
         try {
             //return URLEncoder.encode(original, "utf-8");
             //fixed: to comply with RFC-3986
-            return URLEncoder.encode(original, "utf-8").replace("+", "%20").replace("*", "%2A").replace("%7E", "~");
+            return URLEncoder.encode(original, "utf-8");
         } catch (UnsupportedEncodingException e) {
             //  Logger.e(e.toString());
         }
@@ -77,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onSearch() {
+
         booksAsyncTask booksAsyncTask = new booksAsyncTask();
         booksAsyncTask.execute();
     }
@@ -108,11 +132,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateUi() {
-        booksAdapter = new Adapter(getApplicationContext(), bookList);
-        ListView listView = (ListView) findViewById(R.id.list);
-        listView.setAdapter(booksAdapter);
-    }
 
+        if (bookList.isEmpty()) {
+            final LinearLayout noResult = (LinearLayout) findViewById(R.id.empty_list);
+            noResult.setVisibility(View.VISIBLE);
+        } else {
+            booksAdapter = new Adapter(getApplicationContext(), bookList);
+            ListView listView = (ListView) findViewById(R.id.list);
+            listView.setAdapter(booksAdapter);
+        }
+    }
     private URL createUrl(String stringUrl) {
         URL url = null;
         try {
@@ -225,8 +254,28 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
 
+                // ----
+                // Rating
+                // ----
+
+                String rating = null;
+
+                try {
+                    rating = volumeInfo.getString("averageRating");
+                } catch (JSONException ignored) {
+                }
+
+                String ratingString = "";
+
+                if (rating == null) {
+                    ratingString = "Na";
+                } else {
+                    ratingString = rating;
+                }
+
+
                 // Adding to Array
-                bookList.add(new Book(title, bookAuthorsString));
+                bookList.add(new Book(title, bookAuthorsString, ratingString));
             }
 
         } catch (JSONException e) {
